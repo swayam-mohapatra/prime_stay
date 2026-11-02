@@ -1,0 +1,255 @@
+PrimeStay Project Summary
+=========================
+
+1. Project Structure
+--------------------
+- backend/: Express + MongoDB API server
+- frontend/: React + Vite user interface
+
+2. Tech Stack
+-------------
+Backend:
+- Node.js + Express 5
+- MongoDB with Mongoose
+- JWT authentication via jsonwebtoken
+- Password hashing with bcryptjs
+- File upload handling with multer
+- CORS support via cors
+- Environment config via dotenv
+
+Frontend:
+- React 19
+- Vite for build and dev server
+- React Router DOM for routing
+- Framer Motion for UI animation
+- Recharts for admin charts
+- React Calendar for booking date selection
+- Lucide React icons
+
+3. APIs Used
+------------
+The backend exposes four main API route groups under /api:
+
+A. /api/auth
+  - POST /register
+    - Register new customers
+    - Hashes password, creates User, issues JWT
+  - POST /login
+    - Authenticate existing user
+    - Verifies password and returns JWT + user info
+  - GET /users
+    - Admin-only
+    - Lists all registered users without passwords
+
+B. /api/rooms
+  - GET /
+    - Public list of all rooms
+    - Used by Home and Rooms pages
+  - PATCH /:roomNumber/status
+    - Admin-only
+    - Change room status: Available, Booked, Maintenance
+  - PUT /:roomNumber
+    - Admin-only
+    - Update room details like image, description, price, features, featured flag
+
+C. /api/bookings
+  - POST /
+    - Create booking for a customer
+    - Auto-assigns a conflict-free room of requested type
+    - Creates booking with status Confirmed and updates room status to Booked
+  - GET /
+    - Returns all bookings for admin
+    - If ?customerId=email is passed, returns bookings for that customer
+  - PUT /:id
+    - Modify booking dates and guests
+    - Checks for date conflicts for same room id
+    - Recalculates nights and price
+  - PATCH /:id/cancel
+    - Cancel a booking
+    - Updates booking status to Cancelled
+  - GET /stats
+    - Admin analytics
+    - Returns totalRevenue, monthlyRevenue, occupancy counts, and room popularity
+  - PATCH /:id/payment
+    - Upload payment proof for a booking
+    - Sets paymentStatus to Pending and booking status to Pending Payment
+  - PATCH /:id/verify
+    - Admin verifies or declines payment
+    - Sets booking status to Confirmed or Cancelled
+    - Updates associated room status accordingly
+
+D. /api/upload
+  - POST /
+    - Uploads a room image or payment proof file
+    - Uses multer to store files in backend/uploads
+    - Returns URL path for the uploaded file
+
+4. Why Each API Exists
+-----------------------
+- /api/auth handles user registration, login, and admin user listing.
+- /api/rooms lets the public fetch room listings and lets admins manage room metadata and availability.
+- /api/bookings handles booking creation, editing, cancellation, payment proof upload, and admin verification.
+- /api/upload supports storing uploaded images or payment proofs on the backend filesystem.
+
+5. Middleware and Backend Work
+------------------------------
+Global middleware in backend/server.js:
+- cors(): allows frontend requests from other origins
+- express.json(): parses JSON request bodies
+- express.static('/uploads'): serves uploaded image files from backend/uploads folder
+
+Auth middleware in backend/middleware/authMiddleware.js:
+- verifyToken:
+  - Reads Authorization header
+  - Expects Bearer <token>
+  - Verifies JWT with JWT_SECRET
+  - Attaches decoded payload to req.user
+  - Returns 401 if missing/invalid
+- requireAdmin:
+  - Checks req.user.role === 'admin'
+  - Returns 403 if not admin
+
+Upload route middleware backend/routes/uploadRoutes.js:
+- Uses multer.diskStorage to store files in backend/uploads
+- Accepts only image MIME types: jpeg, jpg, png, webp, gif
+- Limits upload size to 5 MB
+- Returns imageUrl path so frontend can reference uploaded images
+
+6. Data Models
+--------------
+User model:
+- name: String, required
+- email: String, required, unique
+- password: String, required (bcrypt hash)
+- role: String enum [customer, admin], default customer
+- memberSince: String, default current year
+
+Room model:
+- roomNumber: String, required, unique
+- type: String enum [Single, Double, Suite, Deluxe], required
+- price: Number, required
+- capacity: Number, required
+- description: String
+- status: String enum [Available, Booked, Maintenance], default Available
+- image: String
+- icon: String
+- features: [String]
+- featured: Boolean, default false
+
+Booking model:
+- customerId: String, required (customer email)
+- roomId: String, required (roomNumber)
+- checkIn: Date, required
+- checkOut: Date, required
+- totalPrice: Number, required
+- guests: Number, required
+- status: String enum [Confirmed, Cancelled, Pending Payment], default Confirmed
+- paymentStatus: String enum [Pending, Verified, Declined], default Pending
+- paymentProof: String
+- nights: Number
+- roomType: String
+- roomIcon: String
+- bookedOn: Date, default now
+
+7. Database Collections and Usage
+---------------------------------
+A. users collection
+- Stored in backend/models/User.js as the User schema
+- Created by POST /api/auth/register
+- Queried by POST /api/auth/login to validate credentials
+- Queried by GET /api/auth/users for admin user dashboard
+- Used by frontend LoginModal to save login data in localStorage
+- customerId in bookings is populated with user email from this collection
+
+B. rooms collection
+- Stored in backend/models/Room.js as the Room schema
+- Seeded via backend/seed.js with 30 sample rooms
+- Fetched publicly by GET /api/rooms for Home and RoomsPage
+- Updated by admin via PATCH /api/rooms/:roomNumber/status
+- Updated by admin via PUT /api/rooms/:roomNumber to save image URL and details
+- Room availability controls whether Book Now is enabled in the frontend
+- Room icon, type, and price are used by BookingModal when creating a booking
+
+C. bookings collection
+- Stored in backend/models/Booking.js as the Booking schema
+- Created by POST /api/bookings when customers book a room
+- Filtered by GET /api/bookings?customerId=<email> for customer dashboard
+- Retrieved by GET /api/bookings for admin dashboard analytics and review
+- Modified by PUT /api/bookings/:id to change dates and guest count
+- Cancelled by PATCH /api/bookings/:id/cancel
+- Payment proof attached by PATCH /api/bookings/:id/payment
+- Verified or declined by PATCH /api/bookings/:id/verify
+- Stats endpoint GET /api/bookings/stats aggregates bookings for revenue and occupancy
+
+How each collection is used in practice:
+- users: identity, authentication, role-based access, customer email link to bookings
+- rooms: public catalog, admin room lifecycle, availability for booking logic
+- bookings: reservation data, status transitions, payment workflow, admin reporting
+
+8. Frontend App Flow
+--------------------
+Routes (frontend/src/App.jsx):
+- / and /home → Home page
+- /rooms → Rooms listing & search/filter
+- /dashboard → Customer dashboard (private)
+- /admin → Admin dashboard (admin-only)
+
+Protected routing:
+- PrivateRoute requires JWT token in localStorage
+- AdminRoute requires token + role === 'admin'
+
+Auth storage:
+- JWT token stored in localStorage under jv_token
+- User info stored under jv_user_name, jv_user_email, jv_user_role, jv_member_since
+
+8. Customer Workflow
+--------------------
+1. Visitor lands on Home page and sees room categories.
+2. They can click Sign In to open LoginModal.
+3. If not registered, they can switch to Register mode.
+4. After login, localStorage saves token and user info.
+5. Customer can book from Home or RoomsPage.
+6. BookingModal collects dates, guest count, and optionally payment proof.
+7. On submit, the frontend calls POST /api/bookings.
+8. Booking is created and status is Confirmed by default.
+9. Customer can visit /dashboard for:
+   - Upcoming confirmed bookings
+   - Past completed bookings
+   - Cancelled bookings
+   - Modify an existing booking
+   - Cancel an existing booking
+10. Dashboard fetches bookings with ?customerId=<email>.
+
+9. Admin Workflow
+-----------------
+1. Admin logs in via the same LoginModal using an admin account.
+2. /admin route is protected and accessible only when role === 'admin'.
+3. AdminDashboard fetches:
+   - all bookings
+   - all users
+   - all rooms
+   - booking stats
+4. Admin sees overview cards for Available Rooms, Confirmed Bookings, Total Revenue, Registered Users.
+5. Admin can:
+   - verify or decline booking payments via PATCH /api/bookings/:id/verify
+   - update room status via PATCH /api/rooms/:roomNumber/status
+   - upload room images via /api/upload and then save the image URL with PUT /api/rooms/:roomNumber
+6. Admin can also filter booking status and review user list.
+
+10. Seed and Admin Details
+--------------------------
+- backend/seed.js seeds an admin account and 30 sample rooms.
+- Admin credentials from seed: admin@johnvilla.com / admin123
+
+11. Environment Configuration
+-----------------------------
+- backend uses process.env.MONGODB_URI for MongoDB connection
+- backend uses process.env.JWT_SECRET for JWT signing
+- default MongoDB URI: mongodb://localhost:27017/hotel_management
+- default JWT secret: johnvilla_secret_key_2026
+
+12. Notes
+---------
+- Frontend uses hardcoded API base URL: http://localhost:5000
+- Uploaded files are served at http://localhost:5000/uploads/<filename>
+- Admin actions rely on JWT token + admin role checks in backend middleware
