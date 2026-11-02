@@ -181,7 +181,6 @@ function AdminDashboard() {
           <div className="ad-sidebar-logo">🏨</div>
           <div>
             <h2>Prime Stay</h2>
-            <span style={{color: 'var(--accent)'}}>🏨</span> Prime Stay
           </div>
         </div>
 

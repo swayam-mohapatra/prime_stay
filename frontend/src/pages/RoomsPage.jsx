@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Filter, X, Search, ChevronDown, Star, Wifi, Wind, 
@@ -21,6 +22,7 @@ const AMENITIES = [
 // Room types will be derived dynamically from the API data
 
 function RoomsPage() {
+  const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
   const [filteredRooms, setFilteredRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +117,11 @@ function RoomsPage() {
     <div className="rooms-page">
       {/* ── Header ── */}
       <header className="rp-header">
+        <div className="rp-header-top">
+          <button type="button" className="back-home-btn" onClick={() => navigate("/")}>
+            ← Back to Home
+          </button>
+        </div>
         <div className="rp-header-content">
           <h1>Discover Your <span className="gold">Perfect Stay</span></h1>
           <p>Handpicked luxury rooms for an unforgettable experience</p>

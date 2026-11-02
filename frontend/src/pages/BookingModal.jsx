@@ -218,7 +218,7 @@ function BookingModal({ room, onClose, existingBooking, mode = "new", onBookingU
                   </div>
 
                   <div className="payment-notice">
-                    ⚠️ Your booking will be confirmed once payment is verified. (You can upload proof later).
+                    ✅ Your booking is marked as paid and confirmed. You can still upload proof later if needed.
                   </div>
 
                   {error && <div className="bm-error">{error}</div>}

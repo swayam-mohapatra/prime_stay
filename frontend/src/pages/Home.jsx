@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import LoginModal from "./LoginModal";
 import BookingModal from "./BookingModal";
@@ -20,6 +20,7 @@ const ROOM_IMAGES = {
 
 function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // --- Data Fetching ---
   const [rooms, setRooms] = useState([]);
@@ -81,6 +82,23 @@ function Home() {
     }
   };
 
+  const handleNavClick = (path, event) => {
+    const isHomeRoute = path === "/" || path === "/home";
+    const isCurrentHome = isHomeRoute && (location.pathname === "/" || location.pathname === "/home");
+    const isCurrentRoute = path === location.pathname;
+
+    if (isCurrentHome || isCurrentRoute) {
+      event.preventDefault();
+      if (isCurrentHome) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return;
+    }
+
+    event.preventDefault();
+    navigate(path);
+  };
+
   // --- Group Rooms by Category ---
   const getRoomCategories = () => {
     const categories = {};
@@ -139,8 +157,8 @@ function Home() {
           <span style={{color: 'var(--accent)'}}>🏨</span> Prime Stay
         </div>
         <div className="nav-links">
-          <a href="/">Home</a>
-          <a href="/rooms" onClick={(e) => { e.preventDefault(); navigate("/rooms"); }}>Rooms</a>
+          <a href="/" onClick={(e) => handleNavClick("/", e)}>Home</a>
+          <a href="/rooms" onClick={(e) => handleNavClick("/rooms", e)}>Rooms</a>
           <a href="#amenities">Amenities</a>
           <a href="#reviews">Reviews</a>
 
